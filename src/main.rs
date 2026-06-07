@@ -16,10 +16,7 @@ impl PipingStatistics {
     }
 }
 
-// trait sex {}
-
 fn main() -> std::io::Result<()> {
-    // let args = std::env::args().collect::<Vec<String>>();
     let argv: Vec<String> = std::env::args().collect(); 
     let quiet: bool = argv.iter().any(|arg: &String| arg == "--quiet");
 
@@ -34,7 +31,7 @@ fn main() -> std::io::Result<()> {
     while let Some(line) = lines.next() {
         let line: String = line?;
         piping_statistics.total_lines_amount += 1;
-        piping_statistics.total_bytes_amount += line.len() + 1;
+        piping_statistics.total_bytes_amount += line.as_bytes().len() + 1;
 
         writeln!(writer, "{}", line)?;
 
@@ -49,10 +46,10 @@ fn main() -> std::io::Result<()> {
     eprintln!("- Lines: {:>14}", piping_statistics.total_lines_amount);
     eprintln!("- Bytes: {:>14}", piping_statistics.total_bytes_amount);
     if elapsed_time > 0.0 {
-        eprintln!("- Rate: {:>12.4} L/s", piping_statistics.total_lines_amount as f64 / elapsed_time);
-        eprintln!("- Rate: {:>12.4} B/s", piping_statistics.total_bytes_amount as f64 / elapsed_time);
+        eprintln!("- Rate: {:>12.4} L/s", piping_statistics.total_lines_amount as f64 / elapsed_time); // lines per second
+        eprintln!("- Rate: {:>12.4} B/s", piping_statistics.total_bytes_amount as f64 / elapsed_time); // bytes per second
     } else {
-        eprintln!("Rate: very fast");
+        eprintln!("Rate: so fast that it actually time travelled to the past with negative time elapsed somehow");
     }
 
     Ok(())
