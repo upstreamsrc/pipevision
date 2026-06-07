@@ -1,0 +1,24 @@
+INFO Starting application
+DEBUG Loading configuration
+INFO Configuration loaded
+
+WARN Cache miss for user 123
+INFO User authenticated
+ERROR Database connection timeout
+INFO Retrying connection
+INFO Connection established
+
+DEBUG Request received: GET /api/users
+DEBUG Request received: GET /api/posts
+ERROR Failed to fetch posts
+INFO Fallback data served
+
+INFO Background job started
+INFO Processing batch 1
+INFO Processing batch 2
+WARN Slow query detected
+INFO Processing batch 3
+ERROR Job failed
+
+INFO Shutdown initiated
+INFO Shutdown complete

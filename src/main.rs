@@ -28,6 +28,12 @@ fn main() -> std::io::Result<()> {
     let stdout: Stdout = std::io::stdout();
     let mut writer: BufWriter<Stdout> = BufWriter::new(stdout);
 
+    let stage: usize = argv.iter()
+                           .position(|arg: &String| arg == "--stage")
+                           .and_then(|index: usize| argv.get(index + 1)
+                                                        .and_then(|arg: &String| arg.parse().ok()))
+                           .unwrap_or( 1); // default to argv[1]
+
     while let Some(line) = lines.next() {
         let line: String = line?;
         piping_statistics.total_lines_amount += 1;
@@ -43,14 +49,18 @@ fn main() -> std::io::Result<()> {
     writer.flush()?;
 
     let elapsed_time: f64 = piping_statistics.start_time.elapsed().as_secs_f64();
-    eprintln!("- Lines: {:>14}", piping_statistics.total_lines_amount);
-    eprintln!("- Bytes: {:>14}", piping_statistics.total_bytes_amount);
     if elapsed_time > 0.0 {
-        eprintln!("- Rate: {:>12.4} L/s", piping_statistics.total_lines_amount as f64 / elapsed_time); // lines per second
-        eprintln!("- Rate: {:>12.4} B/s", piping_statistics.total_bytes_amount as f64 / elapsed_time); // bytes per second
+        eprintln!();
+        eprintln!("-[ STAGE {} ]-", stage);
+        eprintln!("Lines : {}", piping_statistics.total_lines_amount);
+        eprintln!("Bytes : {}", piping_statistics.total_bytes_amount);
+        eprintln!("L/s   : {:.4}", piping_statistics.total_lines_amount as f64 / elapsed_time);
+        eprintln!("B/s   : {:.4}", piping_statistics.total_bytes_amount as f64 / elapsed_time);
+        eprintln!();
+        // echo -e "a ERROR x\nb OK y\nc ERROR z" | ./target/release/pipeviz --stage 1 | grep ERROR | ./target/release/pipeviz --stage 2 | wc -l
     } else {
-        eprintln!("Rate: so fast that it actually time travelled to the past with negative time elapsed somehow");
+        eprintln!("Rate: you cannot time travel to the past, ET is <0, try again");
     }
-
+    
     Ok(())
 }
