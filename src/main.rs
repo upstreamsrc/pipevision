@@ -32,7 +32,12 @@ fn main() -> std::io::Result<()> {
                            .position(|arg: &String| arg == "--stage")
                            .and_then(|index: usize| argv.get(index + 1)
                                                         .and_then(|arg: &String| arg.parse().ok()))
-                           .unwrap_or( 1); // default to argv[1]
+                           .unwrap_or(1); 
+
+    let input_lines: usize = argv.iter()
+        .position(|arg: &String| arg == "--input")
+        .and_then(|index: usize| argv.get(index + 1).and_then(|arg_str: &String| arg_str.parse().ok()))
+        .unwrap_or(0);
 
     while let Some(line) = lines.next() {
         let line: String = line?;
@@ -48,16 +53,20 @@ fn main() -> std::io::Result<()> {
 
     writer.flush()?;
 
+    let filtered_lines: usize = if input_lines > 0 {
+        input_lines.saturating_sub(piping_statistics.total_lines_amount) // min: 0
+    } else {0};
+
     let elapsed_time: f64 = piping_statistics.start_time.elapsed().as_secs_f64();
     if elapsed_time > 0.0 {
         eprintln!();
         eprintln!("-[ STAGE {} ]-", stage);
-        eprintln!("Lines : {}", piping_statistics.total_lines_amount);
-        eprintln!("Bytes : {}", piping_statistics.total_bytes_amount);
-        eprintln!("L/s   : {:.4}", piping_statistics.total_lines_amount as f64 / elapsed_time);
-        eprintln!("B/s   : {:.4}", piping_statistics.total_bytes_amount as f64 / elapsed_time);
+        eprintln!("Lines       : {}", piping_statistics.total_lines_amount);
+        eprintln!("Filtered    : {}", filtered_lines);  
+        eprintln!("Bytes       : {}", piping_statistics.total_bytes_amount);
+        eprintln!("L/s         : {:.4}", piping_statistics.total_lines_amount as f64 / elapsed_time);
+        eprintln!("B/s         : {:.4}", piping_statistics.total_bytes_amount as f64 / elapsed_time);
         eprintln!();
-        // echo -e "a ERROR x\nb OK y\nc ERROR z" | ./target/release/pipeviz --stage 1 | grep ERROR | ./target/release/pipeviz --stage 2 | wc -l
     } else {
         eprintln!("Rate: you cannot time travel to the past, ET is <0, try again");
     }
