@@ -1,4 +1,4 @@
-use std::{io::{BufRead, BufReader, BufWriter, Lines, Stdin, Stdout, Write}, time::Instant};
+use std::{env, io::{BufRead, BufReader, BufWriter, Lines, Stdin, Stdout, Write}, time::Instant};
 
 struct PipingStatistics {
     total_bytes_amount: usize,
@@ -28,11 +28,21 @@ fn main() -> std::io::Result<()> {
     let stdout: Stdout = std::io::stdout();
     let mut writer: BufWriter<Stdout> = BufWriter::new(stdout);
 
-    let stage: usize = argv.iter()
-                           .position(|arg: &String| arg == "--stage")
-                           .and_then(|index: usize| argv.get(index + 1)
-                                                        .and_then(|arg: &String| arg.parse().ok()))
-                           .unwrap_or(1); 
+    // let stage: usize = argv.iter()
+    //                        .position(|arg: &String| arg == "--stage")
+    //                        .and_then(|index: usize| argv.get(index + 1)
+    //                                                     .and_then(|arg: &String| arg.parse().ok()))
+    //                        .unwrap_or(1); 
+
+    let stage: usize = env::var("PIPE_STAGE")
+                       .ok().and_then(|s: String| s.parse().ok())
+                       .or_else(|| {
+                            argv.iter().position(|arg: &String| arg == "--stage")
+                            .and_then(|index: usize| argv.get(index + 1))
+                                                         .and_then(|arg: &String| arg.parse().ok())
+                       }).unwrap_or(1);
+
+    // cat test.txt | ./target/release/pipevision --stage 1 | grep -v "DEBUG" | ./target/release/pipevision --stage 2 | sort | ./target/release/pipevision --stage 3
 
     let input_lines: usize = argv.iter()
         .position(|arg: &String| arg == "--input")
