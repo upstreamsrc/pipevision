@@ -1,85 +1,68 @@
-use std::{env, io::{BufRead, BufReader, BufWriter, Lines, Stdin, Stdout, Write}, time::Instant};
+use std::env;
+use std::io;
+use std::io::Stdout;
 
-struct PipingStatistics {
-    total_bytes_amount: usize,
-    total_lines_amount: usize,
-    start_time: Instant
+use crate::app::App;
+
+mod app;
+mod pipeline;
+mod stats;
+mod ui;
+
+fn main() -> io::Result<()> {
+    let args: Vec<String> = env::args().collect();
+    let has_stage: bool = args.iter().any(|arg| arg.starts_with("--stage="));
+
+    if has_stage {
+        let quiet: bool = args.iter().any(|arg| arg == "--quiet");
+        return pipeline::run_pipeline_injected(quiet);
+    }
+
+    let file_arg = args.iter().skip(1).find(|arg| !arg.starts_with("--"));
+    run_tui(file_arg.map(|s| s.as_str()))
 }
 
-impl PipingStatistics {
-    fn new() -> Self {
-        Self {
-            total_bytes_amount: 0,
-            total_lines_amount: 0,
-            start_time: Instant::now()
+fn run_tui(file_path: Option<&str>) -> io::Result<()> {
+    use crossterm::event::{self, Event};
+    use crossterm::execute;
+    use crossterm::terminal::{
+        disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    };
+    use ratatui::backend::CrosstermBackend;
+    use ratatui::Terminal;
+    use std::time::Duration;
+
+    let mut app: App = app::App::new(file_path)?;
+
+    if file_path.is_some() {
+        app.start_pipeline();
+    }
+
+    enable_raw_mode()?;
+    let mut stdout: Stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen)?;
+    let backend: CrosstermBackend<Stdout> = CrosstermBackend::new(stdout);
+    let mut terminal: Terminal<CrosstermBackend<Stdout>> = Terminal::new(backend)?;
+    terminal.clear()?;
+
+    let result: Result<(), io::Error> = loop {
+        terminal.draw(|frame| ui::draw(frame, &mut app))?;
+
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                app.handle_key(key);
+                if app.should_exit {
+                    break Ok(());
+                }
+            }
         }
-    }
-}
 
-fn main() -> std::io::Result<()> {
-    let argv: Vec<String> = std::env::args().collect(); 
-    let quiet: bool = argv.iter().any(|arg: &String| arg == "--quiet");
+        app.update();
+    };
 
-    let mut piping_statistics: PipingStatistics = PipingStatistics::new();
+    disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    terminal.show_cursor()?;
 
-    let stdin: BufReader<Stdin> = std::io::BufReader::new(std::io::stdin());
-    let mut lines: Lines<BufReader<Stdin>> = stdin.lines();
-
-    let stdout: Stdout = std::io::stdout();
-    let mut writer: BufWriter<Stdout> = BufWriter::new(stdout);
-
-    // let stage: usize = argv.iter()
-    //                        .position(|arg: &String| arg == "--stage")
-    //                        .and_then(|index: usize| argv.get(index + 1)
-    //                                                     .and_then(|arg: &String| arg.parse().ok()))
-    //                        .unwrap_or(1); 
-
-    let stage: usize = env::var("PIPE_STAGE")
-                       .ok().and_then(|s: String| s.parse().ok())
-                       .or_else(|| {
-                            argv.iter().position(|arg: &String| arg == "--stage")
-                            .and_then(|index: usize| argv.get(index + 1))
-                                                         .and_then(|arg: &String| arg.parse().ok())
-                       }).unwrap_or(1);
-
-    // cat test.txt | ./target/release/pipevision --stage 1 | grep -v "DEBUG" | ./target/release/pipevision --stage 2 | sort | ./target/release/pipevision --stage 3
-
-    let input_lines: usize = argv.iter()
-        .position(|arg: &String| arg == "--input")
-        .and_then(|index: usize| argv.get(index + 1).and_then(|arg_str: &String| arg_str.parse().ok()))
-        .unwrap_or(0);
-
-    while let Some(line) = lines.next() {
-        let line: String = line?;
-        piping_statistics.total_lines_amount += 1;
-        piping_statistics.total_bytes_amount += line.as_bytes().len() + 1;
-
-        writeln!(writer, "{}", line)?;
-
-        if !quiet {
-            eprintln!("{}", line);
-        }
-    }
-
-    writer.flush()?;
-
-    let filtered_lines: usize = if input_lines > 0 {
-        input_lines.saturating_sub(piping_statistics.total_lines_amount) // min: 0
-    } else {0};
-
-    let elapsed_time: f64 = piping_statistics.start_time.elapsed().as_secs_f64();
-    if elapsed_time > 0.0 {
-        eprintln!();
-        eprintln!("-[ STAGE {} ]-", stage);
-        eprintln!("Lines       : {}", piping_statistics.total_lines_amount);
-        eprintln!("Filtered    : {}", filtered_lines);  
-        eprintln!("Bytes       : {}", piping_statistics.total_bytes_amount);
-        eprintln!("L/s         : {:.4}", piping_statistics.total_lines_amount as f64 / elapsed_time);
-        eprintln!("B/s         : {:.4}", piping_statistics.total_bytes_amount as f64 / elapsed_time);
-        eprintln!();
-    } else {
-        eprintln!("Rate: you cannot time travel to the past, ET is <0, try again");
-    }
-    
-    Ok(())
+    result
 }
